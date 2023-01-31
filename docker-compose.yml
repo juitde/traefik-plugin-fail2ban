@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v2.9
+    ports:
+      - target: 8080
+        published: 8080
+      - target: 8081
+        published: 8081
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - .:/plugins-local/src/github.com/juitde/traefik-plugin-fail2ban
+    command:
+      - --providers.docker
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.http.address=:8080
+      - --entrypoints.dashboard.address=:8081
+      - --accesslog
+      - --log
+      - --log.level=DEBUG
+      - --api
+      - --experimental.localplugins.fail2ban.modulename=github.com/juitde/traefik-plugin-fail2ban
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dashboard.entrypoints=dashboard
+      - traefik.http.routers.dashboard.service=api@internal
+      - traefik.http.routers.dashboard.rule=PathPrefix("/")
+      - traefik.http.middlewares.dashboard-redirect.redirectregex.regex=^http(s)?:\\/\\/([^\\/]+)\\/?$$
+      - traefik.http.middlewares.dashboard-redirect.redirectregex.replacement=http$$1://$$2/dashboard
+      - traefik.http.routers.dashboard.middlewares=dashboard-redirect
+      - traefik.http.middlewares.fail2ban.plugin.fail2ban.enabled=true
+      - traefik.http.middlewares.fail2ban.plugin.fail2ban.loglevel=DEBUG
+      - traefik.http.middlewares.fail2ban.plugin.fail2ban.alwaysallowed.ip=::1,127.0.0.1
+      - traefik.http.middlewares.fail2ban.plugin.fail2ban.rules.maxretries=4
+      - traefik.http.middlewares.fail2ban.plugin.fail2ban.rules.findtime=2m
+      - traefik.http.middlewares.fail2ban.plugin.fail2ban.rules.bantime=5m
+      - traefik.http.middlewares.fail2ban.plugin.fail2ban.rules.response.statuscodes=200
+  whoami:
+    image: containous/whoami
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.whoami.entrypoints=http
+      - traefik.http.routers.whoami.rule=PathPrefix("/")
+      - traefik.http.routers.whoami.middlewares=fail2ban
+      - traefik.http.services.whoami.loadbalancer.server.port=80

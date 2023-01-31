@@ -1,0 +1,21 @@
+displayName: JUIT GmbH / Fail2Ban
+type: middleware
+#iconPath: .assets/icon.png
+
+import: github.com/juitde/traefik-plugin-fail2ban
+
+summary: 'Block or allow IPs depending on various conditions'
+
+testData:
+  enabled: true
+  alwaysAllowed:
+    ip: "::1,127.0.0.1"
+  alwaysDenied:
+    ip: "192.168.0.0/24"
+  logLevel: "INFO"
+  rules:
+    findTime: "10m"
+    banTime: "3h"
+    maxRetries: 4
+    response:
+      statusCodes: "400-401,403-499"
