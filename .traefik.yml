@@ -4,7 +4,7 @@ type: middleware
 
 import: github.com/juitde/traefik-plugin-fail2ban
 
-summary: 'Block or allow IPs depending on various conditions'
+summary: 'Block or allow IPs depending on various conditions (requires Traefik >= 2.10.0)'
 
 testData:
   enabled: true

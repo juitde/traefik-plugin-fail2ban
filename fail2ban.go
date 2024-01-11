@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/zerodha/logf"
 )
 
 type configIPSpec struct {
@@ -146,8 +148,41 @@ func parseResponseRules(config configResponse) responseRules {
 	}
 }
 
+func configLogger(logLevel string) {
+	parsedLogLevel, err := logf.LevelFromString(strings.ToLower(logLevel))
+	if err != nil {
+		parsedLogLevel = logf.InfoLevel
+	}
+	logger := logf.New(logf.Opts{
+		EnableColor:     false,
+		Level:           parsedLogLevel,
+		EnableCaller:    false,
+		TimestampFormat: fmt.Sprintf("\"%s\"", time.RFC3339),
+		DefaultFields:   []any{"plugin", "JUIT Fail2Ban"},
+	})
+
+	logger.Debug(fmt.Sprintf("Setting log level to %s", strings.ToUpper(parsedLogLevel.String())))
+	/*
+		log.WithField("plugin", "JUIT Fail2Ban")
+		log.SetLevel(log.WarnLevel)
+		parsedLogLevel, err := log.ParseLevel(logLevel)
+		if err != nil {
+			log.Warn("Failed to parse LogLevel. Will default to WARN")
+			parsedLogLevel = log.WarnLevel
+		}
+
+		if parsedLogLevel == log.TraceLevel {
+			log.SetReportCaller(true)
+		}
+		log.SetLevel(parsedLogLevel)
+		log.Debugf("Setting log level to %s", logLevel)
+	*/
+}
+
 // New creates a Fail2Ban plugin instance.
-func New(ctx context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
+func New(_ context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
+	configLogger(config.LogLevel)
+
 	return &Fail2Ban{
 		next:                next,
 		name:                name,
