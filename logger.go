@@ -1,4 +1,4 @@
-package traefik_plugin_fail2ban
+package traefik_plugin_fail2ban //nolint:revive,stylecheck
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"github.com/zerodha/logf"
 )
 
+// NewLogger creates new instance of logger.
 func NewLogger(logLevel string) *logf.Logger {
 	parsedLogLevel, err := logf.LevelFromString(strings.ToLower(logLevel))
 	if err != nil {
