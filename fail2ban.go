@@ -4,7 +4,6 @@ package traefik_plugin_fail2ban //nolint:revive,stylecheck
 import (
 	"context"
 	"fmt"
-	"github.com/zerodha/logf"
 	"net"
 	"net/http"
 	"regexp"
@@ -12,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/zerodha/logf"
 )
 
 type configIPSpec struct {

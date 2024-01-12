@@ -1,9 +1,10 @@
 package traefik_plugin_fail2ban //nolint:revive,stylecheck
 
 import (
-	"github.com/zerodha/logf"
 	"net/http"
 	"strconv"
+
+	"github.com/zerodha/logf"
 )
 
 // ResponseWriter wrapping original ResponseWriter with response check handling.

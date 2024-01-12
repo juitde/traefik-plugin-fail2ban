@@ -2,9 +2,10 @@ package traefik_plugin_fail2ban
 
 import (
 	"fmt"
-	"github.com/zerodha/logf"
 	"strings"
 	"time"
+
+	"github.com/zerodha/logf"
 )
 
 func NewLogger(logLevel string) *logf.Logger {
