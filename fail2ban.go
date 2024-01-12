@@ -4,6 +4,7 @@ package traefik_plugin_fail2ban //nolint:revive,stylecheck
 import (
 	"context"
 	"fmt"
+	"github.com/zerodha/logf"
 	"net"
 	"net/http"
 	"regexp"
@@ -11,8 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/zerodha/logf"
 )
 
 type configIPSpec struct {
@@ -66,6 +65,7 @@ type Fail2Ban struct {
 	next                http.Handler
 	name                string
 	cache               *Cache
+	logger              *logf.Logger
 	enabled             bool
 	staticAllowedIPNets []*net.IPNet
 	staticDeniedIPNets  []*net.IPNet
@@ -148,45 +148,13 @@ func parseResponseRules(config configResponse) responseRules {
 	}
 }
 
-func configLogger(logLevel string) {
-	parsedLogLevel, err := logf.LevelFromString(strings.ToLower(logLevel))
-	if err != nil {
-		parsedLogLevel = logf.InfoLevel
-	}
-	logger := logf.New(logf.Opts{
-		EnableColor:     false,
-		Level:           parsedLogLevel,
-		EnableCaller:    false,
-		TimestampFormat: fmt.Sprintf("\"%s\"", time.RFC3339),
-		DefaultFields:   []any{"plugin", "JUIT Fail2Ban"},
-	})
-
-	logger.Debug(fmt.Sprintf("Setting log level to %s", strings.ToUpper(parsedLogLevel.String())))
-	/*
-		log.WithField("plugin", "JUIT Fail2Ban")
-		log.SetLevel(log.WarnLevel)
-		parsedLogLevel, err := log.ParseLevel(logLevel)
-		if err != nil {
-			log.Warn("Failed to parse LogLevel. Will default to WARN")
-			parsedLogLevel = log.WarnLevel
-		}
-
-		if parsedLogLevel == log.TraceLevel {
-			log.SetReportCaller(true)
-		}
-		log.SetLevel(parsedLogLevel)
-		log.Debugf("Setting log level to %s", logLevel)
-	*/
-}
-
 // New creates a Fail2Ban plugin instance.
 func New(_ context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
-	configLogger(config.LogLevel)
-
 	return &Fail2Ban{
 		next:                next,
 		name:                name,
 		cache:               NewCache(),
+		logger:              NewLogger(config.LogLevel),
 		enabled:             config.Enabled,
 		staticAllowedIPNets: parseConfigIPList(config.AlwaysAllowed.IP),
 		staticDeniedIPNets:  parseConfigIPList(config.AlwaysDenied.IP),
@@ -199,25 +167,32 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 
 func (a *Fail2Ban) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
 	if !a.enabled {
+		a.logger.Debug("Handler is not enabled. Skipping.")
 		a.next.ServeHTTP(responseWriter, request)
 		return
 	}
+	a.logger.Debug("Handler is enabled. Analyzing request.")
 
 	remoteIP, _, err := net.SplitHostPort(request.RemoteAddr)
 	if err != nil {
+		a.logger.Error("Failed to detect remoteIP from request.RemoteAddr.", "request.RemoteAddr", request.RemoteAddr)
 		responseWriter.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	for _, ipNet := range a.staticDeniedIPNets {
+		a.logger.Debug("Checking if remoteIP is in static denied Netmask.", "remoteIP", remoteIP, "netmask", ipNet)
 		if ipNet.Contains(net.ParseIP(remoteIP)) {
+			a.logger.Info("RemoteIP was found in staticDeniedIPNets. Access Denied.", "remoteIP", remoteIP, "staticDeniedIPNets", a.staticDeniedIPNets)
 			responseWriter.WriteHeader(http.StatusForbidden)
 			return
 		}
 	}
 
 	for _, ipNet := range a.staticAllowedIPNets {
+		a.logger.Debug("Checking if remoteIP is in static allowed Netmask.", "remoteIP", remoteIP, "netmask", ipNet)
 		if ipNet.Contains(net.ParseIP(remoteIP)) {
+			a.logger.Info("RemoteIP was found in staticAllowedIPNets. Access Granted.", "remoteIP", remoteIP, "staticAllowedIPNets", a.staticAllowedIPNets)
 			a.next.ServeHTTP(responseWriter, request)
 			return
 		}
@@ -229,10 +204,12 @@ func (a *Fail2Ban) ServeHTTP(responseWriter http.ResponseWriter, request *http.R
 	entry := a.cache.CreateEntry(remoteIP, requestTime)
 
 	if entry.GetTimesSeen() >= a.maxRetries && !entry.IsBanned() {
+		a.logger.Info("Client has been banned.", "remoteIP", remoteIP, "maxRetries", a.maxRetries)
 		entry.IssueBan()
 	}
 
 	if entry.IsBanned() {
+		a.logger.Debug("Client is still banned.", "remoteIP", remoteIP)
 		responseWriter.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -243,6 +220,7 @@ func (a *Fail2Ban) ServeHTTP(responseWriter http.ResponseWriter, request *http.R
 	// Response rules will be checked in the wrapped response writer
 	wrappedResponseWriter := &ResponseWriter{
 		ResponseWriter: responseWriter,
+		logger:         a.logger,
 		cacheEntry:     entry,
 		rules:          a.responseRules,
 	}
