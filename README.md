@@ -13,6 +13,13 @@ Inspirations taken from:
 
 Installation instructions are provided via the [traefik Plugin Catalog](https://plugins.traefik.io/plugins/).
 
+### CAUTION: Breaking Changes
+
+#### Version 0.2.0
+
+- traefik v2.10+ is required due to now having a vendored dependency which results
+  in go routine panics in previous traefik versions.
+
 ## Configuration
 
 All configuration options may be specified either in config files or as CLI parameters.
