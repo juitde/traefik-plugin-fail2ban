@@ -22,7 +22,7 @@ func NewLogger(logLevel string) *logf.Logger {
 		DefaultFields:   []any{"plugin", "JUIT Fail2Ban"},
 	})
 
-	logger.Debug(fmt.Sprintf("Setting log level to %s", strings.ToUpper(parsedLogLevel.String())))
+	logger.Debug(fmt.Sprintf("Setting log level to %s", strings.ToUpper(parsedLogLevel.String())), "phase", "initialize")
 
 	return &logger
 }

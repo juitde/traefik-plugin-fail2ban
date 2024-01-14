@@ -23,10 +23,10 @@ func (rw *ResponseWriter) WriteHeader(code int) {
 
 	if rw.rules.StatusCode != nil {
 		if rw.rules.StatusCode.MatchString(strconv.Itoa(code)) {
-			rw.logger.Debug("Response Status Code matched rule. Incrementing.", "statusCodeRegexp", rw.rules.StatusCode, "responseStatusCode", code)
+			rw.logger.Debug("Response Status Code matched rule. Incrementing.", "statusCodeRegexp", rw.rules.StatusCode, "responseStatusCode", code, "phase", "check_response", "status", "denied")
 			rw.cacheEntry.IncrementTimesSeen()
 		} else {
-			rw.logger.Debug("Response Status Code does not match rule. Skipping.", "statusCodeRegexp", rw.rules.StatusCode, "responseStatusCode", code)
+			rw.logger.Debug("Response Status Code does not match rule. Skipping.", "statusCodeRegexp", rw.rules.StatusCode, "responseStatusCode", code, "phase", "check_response", "status", "granted")
 		}
 	}
 }
