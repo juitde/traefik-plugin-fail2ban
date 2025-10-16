@@ -37,6 +37,7 @@ type configRules struct {
 
 type configResponse struct {
 	StatusCodes []string `yaml:"statusCodes"`
+	ErrorCode   int      `yaml:"errorCode"`
 }
 
 // CreateConfig creates the default plugin configuration.
@@ -52,6 +53,7 @@ func CreateConfig() *Config {
 			MaxRetries: 4,
 			Response: configResponse{
 				StatusCodes: strings.Split("400-499", ","),
+				ErrorCode:   http.StatusForbidden,
 			},
 		},
 	}
@@ -74,6 +76,7 @@ type Fail2Ban struct {
 	banTime             time.Duration
 	maxRetries          uint32
 	responseRules       responseRules
+	errorCode           int
 }
 
 func parseConfigIPList(specs []string) []*net.IPNet {
@@ -163,6 +166,7 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		banTime:             parseDuration(config.Rules.BanTime, 3*time.Hour),
 		maxRetries:          config.Rules.MaxRetries,
 		responseRules:       parseResponseRules(config.Rules.Response),
+		errorCode:           config.Rules.Response.ErrorCode,
 	}, nil
 }
 
@@ -185,7 +189,7 @@ func (a *Fail2Ban) ServeHTTP(responseWriter http.ResponseWriter, request *http.R
 		a.logger.Debug("Checking if remoteIP is in static denied Netmask.", "remoteIP", remoteIP, "netmask", ipNet, "phase", "check_request")
 		if ipNet.Contains(net.ParseIP(remoteIP)) {
 			a.logger.Info("RemoteIP was found in staticDeniedIPNets. Access Denied.", "remoteIP", remoteIP, "staticDeniedIPNets", a.staticDeniedIPNets, "phase", "check_request", "status", "denied")
-			responseWriter.WriteHeader(http.StatusForbidden)
+			responseWriter.WriteHeader(a.errorCode)
 			return
 		}
 	}
@@ -211,7 +215,7 @@ func (a *Fail2Ban) ServeHTTP(responseWriter http.ResponseWriter, request *http.R
 
 	if entry.IsBanned() {
 		a.logger.Debug("Client is still banned.", "remoteIP", remoteIP, "phase", "check_request", "status", "denied")
-		responseWriter.WriteHeader(http.StatusForbidden)
+		responseWriter.WriteHeader(a.errorCode)
 		return
 	}
 	defer entry.SetLastSeen(requestTime)

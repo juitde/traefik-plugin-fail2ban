@@ -62,6 +62,7 @@ testData:
         maxRetries: 4
         response:
             statusCodes: "400,401,403-499"
+            errorCode: "403"
 ```
 
 ## Processing requests
