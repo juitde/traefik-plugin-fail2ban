@@ -36,6 +36,7 @@ services:
       - traefik.http.middlewares.fail2ban.plugin.fail2ban.rules.findtime=2m
       - traefik.http.middlewares.fail2ban.plugin.fail2ban.rules.bantime=5m
       - traefik.http.middlewares.fail2ban.plugin.fail2ban.rules.response.statuscodes=200
+      - traefik.http.middlewares.fail2ban.plugin.fail2ban.rules.response.errorCode=406
   whoami:
     image: containous/whoami
     labels:
