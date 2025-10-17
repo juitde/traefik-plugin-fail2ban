@@ -205,7 +205,7 @@ func (a *Fail2Ban) ServeHTTP(responseWriter http.ResponseWriter, request *http.R
 	entry := a.cache.CreateEntry(remoteIP, requestTime)
 
 	if entry.GetTimesSeen() >= a.maxRetries && !entry.IsBanned() {
-		a.logger.Info("Client has been banned.", "remoteIP", remoteIP, "maxRetries", a.maxRetries, "banTime", a.banTime, "findTime", a.findTime, "phase", "check_request", "status", "denied")
+		a.logger.Info("Client has been banned.", "remoteIP", remoteIP, "maxRetries", a.maxRetries, "host", request.Host, "banTime", a.banTime, "findTime", a.findTime, "phase", "check_request", "status", "denied")
 		entry.IssueBan()
 	}
 
