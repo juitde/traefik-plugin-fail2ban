@@ -37,6 +37,11 @@ services:
       - traefik.http.middlewares.fail2ban.plugin.fail2ban.rules.bantime=5m
       - traefik.http.middlewares.fail2ban.plugin.fail2ban.rules.response.statuscodes=200
       - traefik.http.middlewares.fail2ban.plugin.fail2ban.rules.response.errorCode=406
+      - traefik.http.middlewares.fail2ban.plugin.fail2ban.abuseIpdb.enabled=true
+      - traefik.http.middlewares.fail2ban.plugin.fail2ban.abuseIpdb.apiKey=your-abuseipdb-api-key
+      - traefik.http.middlewares.fail2ban.plugin.fail2ban.abuseIpdb.confidenceThreshold=75
+      - traefik.http.middlewares.fail2ban.plugin.fail2ban.abuseIpdb.maxAgeInDays=90
+      - traefik.http.middlewares.fail2ban.plugin.fail2ban.abuseIpdb.timeout="5s"
   whoami:
     image: containous/whoami
     labels:
