@@ -17,10 +17,11 @@ type Cache struct {
 
 // CacheEntry represents single entry/IP in cache.
 type CacheEntry struct {
-	firstSeen atomic.Int64
-	lastSeen  atomic.Int64
-	timesSeen atomic.Uint32
-	isBanned  atomic.Bool
+	firstSeen   atomic.Int64
+	lastSeen    atomic.Int64
+	timesSeen   atomic.Uint32
+	isBanned    atomic.Bool
+	isMalicious atomic.Bool
 }
 
 // SetFirstSeen sets firstSeen.
@@ -54,13 +55,19 @@ func (ce *CacheEntry) GetTimesSeen() uint32 {
 }
 
 // IssueBan issues a ban for the entry/ip.
-func (ce *CacheEntry) IssueBan() {
+func (ce *CacheEntry) IssueBan(malicious bool) {
 	ce.isBanned.Store(true)
+	ce.isMalicious.Store(malicious)
 }
 
 // IsBanned checks if entry is banned.
 func (ce *CacheEntry) IsBanned() bool {
 	return ce.isBanned.Load()
+}
+
+// IsMalicious checks if entry is marked as malicious.
+func (ce *CacheEntry) IsMalicious() bool {
+	return ce.isMalicious.Load()
 }
 
 // NewCache creates new instance of caching.
@@ -96,33 +103,40 @@ func (c *Cache) CreateEntry(key string, firstSeen time.Time) *CacheEntry {
 }
 
 // CleanEntryIfPossible removes entry from cache by key and limits.
-func (c *Cache) CleanEntryIfPossible(key string, findTime, banTime time.Duration, now time.Time) {
+func (c *Cache) CleanEntryIfPossible(key string, findTime, banTime, maliciousBanTime time.Duration, now time.Time) {
 	findTimeBoundary := now.Add(-findTime)
-	banTimeBoundary := now.Add(-banTime)
 
 	entry := c.GetEntry(key)
 	if entry == nil {
 		return
 	}
 
-	if entry.IsBanned() && entry.GetLastSeen().Before(banTimeBoundary) {
-		c.lock.Lock()
-		defer c.lock.Unlock()
-		delete(c.entries, key)
+	if entry.IsBanned() {
+		var banTimeBoundary time.Time
+		if entry.IsMalicious() {
+			banTimeBoundary = now.Add(-maliciousBanTime)
+		} else {
+			banTimeBoundary = now.Add(-banTime)
+		}
 
-		return
+		if entry.GetLastSeen().Before(banTimeBoundary) {
+			c.lock.Lock()
+			defer c.lock.Unlock()
+			delete(c.entries, key)
+			return
+		}
 	}
+
 	if !entry.IsBanned() && entry.GetFirstSeen().Before(findTimeBoundary) {
 		c.lock.Lock()
 		defer c.lock.Unlock()
 		delete(c.entries, key)
-
 		return
 	}
 }
 
 // CleanEntries garbage collect entries.
-func (c *Cache) CleanEntries(findTime, banTime time.Duration) (removedEntries int) {
+func (c *Cache) CleanEntries(findTime, banTime, maliciousBanTime time.Duration) (removedEntries int) {
 	lastCleanedRaw := c.lastCleaned.Load()
 	lastCleaned := time.UnixMilli(lastCleanedRaw)
 	now := time.Now()
@@ -139,7 +153,6 @@ func (c *Cache) CleanEntries(findTime, banTime time.Duration) (removedEntries in
 	defer c.lock.Unlock()
 
 	findTimeBoundary := now.Add(-findTime)
-	banTimeBoundary := now.Add(-banTime)
 
 	for key, entry := range c.entries {
 		if !entry.IsBanned() && entry.GetFirstSeen().Before(findTimeBoundary) {
@@ -147,10 +160,20 @@ func (c *Cache) CleanEntries(findTime, banTime time.Duration) (removedEntries in
 			removedEntries++
 		}
 	}
+
 	for key, entry := range c.entries {
-		if entry.GetLastSeen().Before(banTimeBoundary) {
-			delete(c.entries, key)
-			removedEntries++
+		if entry.IsBanned() {
+			var banTimeBoundary time.Time
+			if entry.IsMalicious() {
+				banTimeBoundary = now.Add(-maliciousBanTime)
+			} else {
+				banTimeBoundary = now.Add(-banTime)
+			}
+
+			if entry.GetLastSeen().Before(banTimeBoundary) {
+				delete(c.entries, key)
+				removedEntries++
+			}
 		}
 	}
 

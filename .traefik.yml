@@ -20,3 +20,9 @@ testData:
     response:
       statusCodes: "400-401,403-499"
       errorCode: "403"
+    abuseIpdb:
+      enabled: true
+      apiKey: "your-abuseipdb-api-key"
+      confidenceThreshold: 75
+      maxAgeInDays: 90
+      timeout: "5s"
