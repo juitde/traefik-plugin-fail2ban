@@ -1,6 +1,8 @@
 package traefik_plugin_fail2ban //nolint:revive,stylecheck
 
 import (
+	"bufio"
+	"net"
 	"net/http"
 	"strconv"
 
@@ -29,6 +31,16 @@ func (rw *ResponseWriter) WriteHeader(code int) {
 			rw.logger.Debug("Response Status Code does not match rule. Skipping.", "statusCodeRegexp", rw.rules.StatusCode, "responseStatusCode", code, "phase", "check_response", "status", "granted")
 		}
 	}
+}
+
+// Hijack implements http.Hijacker interface method to support WebSockets and other protocols ...
+func (rw *ResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := rw.ResponseWriter.(http.Hijacker)
+	if !ok {
+		rw.logger.Debug("ResponseWriter does not support hijacking", "phase", "check_response", "status", "error")
+		return nil, nil, http.ErrNotSupported
+	}
+	return hijacker.Hijack()
 }
 
 // Write wraps original Write whilst checking for response body.
